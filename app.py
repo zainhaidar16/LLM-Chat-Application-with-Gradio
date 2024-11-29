@@ -4,7 +4,7 @@ import gradio as gr
 from typing import List, Optional
 
 # LangChain and ML imports
-from langchain.document_loaders import DirectoryLoader, TextLoader
+from langchain.document_loaders import DirectoryLoader, TextLoader, UnstructuredFileLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import (
     HuggingFaceEmbeddings, 
@@ -55,6 +55,11 @@ class DocumentChatApp:
             "DialoGPT Small": "microsoft/DialoGPT-small",
             "DialoGPT Medium": "microsoft/DialoGPT-medium",
             "Pythia 70M": "EleutherAI/pythia-70m",
+            "GPT-J 6B": "EleutherAI/gpt-j-6B",
+            "GPT-Neo 1.3B": "EleutherAI/gpt-neo-1.3B",
+            "OPT 125M": "facebook/opt-125m",
+            "Bloom 1.3B": "bigscience/bloom",
+            "T5 Small": "t5-small",
             "OpenAI GPT-3.5": "gpt-3.5-turbo"
         }
         
@@ -62,30 +67,43 @@ class DocumentChatApp:
         self.vectorstore = None
         self.chat_chain = None
         
-    def load_and_process_documents(self) -> List:
+    def load_and_process_documents(self, files: List[gr.File]) -> List:
         """
-        Load and process documents from the specified directory
+        Load and process documents from the user-provided files
+        
+        Args:
+            files (List[gr.File]): List of user-uploaded files
         
         Returns:
             List of processed document chunks
         """
-        # Create directory if it doesn't exist
-        os.makedirs(self.DOCUMENTS_DIRECTORY, exist_ok=True)
+        texts = []
         
-        # Load documents
-        loader = DirectoryLoader(
-            self.DOCUMENTS_DIRECTORY, 
-            glob="**/*.txt",
-            loader_cls=TextLoader
-        )
-        documents = loader.load()
-        
-        # Split documents
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=self.chunk_size,
-            chunk_overlap=self.chunk_overlap
-        )
-        texts = text_splitter.split_documents(documents)
+        for file in files:
+            # Create temporary file path
+            temp_file_path = os.path.join(self.DOCUMENTS_DIRECTORY, file.name)
+            
+            # Save the file to the temporary directory
+            with open(temp_file_path, "wb") as f:
+                f.write(file.content)
+            
+            # Load the document
+            if file.name.endswith(".txt"):
+                loader = TextLoader(temp_file_path)
+            else:
+                loader = UnstructuredFileLoader(temp_file_path)
+            
+            documents = loader.load()
+            
+            # Split documents
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=self.chunk_size,
+                chunk_overlap=self.chunk_overlap
+            )
+            texts.extend(text_splitter.split_documents(documents))
+            
+            # Remove the temporary file
+            os.remove(temp_file_path)
         
         return texts
     
@@ -214,6 +232,10 @@ class DocumentChatApp:
         Launch Gradio interface with customization options
         """
         with gr.Blocks() as demo:
+            # File Upload
+            with gr.Row():
+                file_upload = gr.File(label="Upload Documents")
+            
             # Customization Components
             with gr.Row():
                 embedding_dropdown = gr.Dropdown(
@@ -266,6 +288,7 @@ class DocumentChatApp:
             initialize_btn.click(
                 fn=self._initialize_from_config,
                 inputs=[
+                    file_upload, 
                     embedding_dropdown, 
                     llm_dropdown, 
                     chunk_size, 
@@ -280,6 +303,7 @@ class DocumentChatApp:
     
     def _initialize_from_config(
         self, 
+        files, 
         embedding_model, 
         llm_model, 
         chunk_size, 
@@ -296,7 +320,7 @@ class DocumentChatApp:
         self.search_kwargs = {"k": int(k_documents)}
         
         # Load and process documents
-        texts = self.load_and_process_documents()
+        texts = self.load_and_process_documents(files)
         
         # Create vector store
         self.create_vector_store(texts, embedding_model)
@@ -312,4 +336,4 @@ class DocumentChatApp:
 # Main execution
 if __name__ == '__main__':
     app = DocumentChatApp()
-    app.launch_gradio_interface()
+    app.launch_gradio_interface(sharing=True)
