@@ -336,4 +336,4 @@ class DocumentChatApp:
 # Main execution
 if __name__ == '__main__':
     app = DocumentChatApp()
-    app.launch_gradio_interface(sharing=True)
+    app.launch_gradio_interface()
