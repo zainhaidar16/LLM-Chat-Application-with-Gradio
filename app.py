@@ -52,15 +52,9 @@ class DocumentChatApp:
         }
         
         self.LLM_MODELS = {
-            "DialoGPT Small": "microsoft/DialoGPT-small",
-            "DialoGPT Medium": "microsoft/DialoGPT-medium",
-            "Pythia 70M": "EleutherAI/pythia-70m",
-            "GPT-J 6B": "EleutherAI/gpt-j-6B",
-            "GPT-Neo 1.3B": "EleutherAI/gpt-neo-1.3B",
-            "OPT 125M": "facebook/opt-125m",
-            "Bloom 1.3B": "bigscience/bloom",
-            "T5 Small": "t5-small",
-            "OpenAI GPT-3.5": "gpt-3.5-turbo"
+            "Llama-2-7b-chat": "meta-llama/Llama-2-7b-chat-hf",
+            "Llama-2-13b-chat": "meta-llama/Llama-2-13b-chat-hf",
+            "Llama-2-70b-chat": "meta-llama/Llama-2-70b-chat-hf"
         }
         
         # Initialize key components
@@ -141,7 +135,7 @@ class DocumentChatApp:
     
     def initialize_llm(
         self, 
-        llm_model: str = "DialoGPT Small", 
+        llm_model: str = "Llama-2-7b-chat", 
         temperature: float = 0.7
     ):
         """
@@ -154,15 +148,16 @@ class DocumentChatApp:
         Returns:
             Initialized Language Model
         """
-        if llm_model == "OpenAI GPT-3.5":
-            # Requires OPENAI_API_KEY
-            return OpenAI(temperature=temperature)
+        # Llama models (Hugging Face)
+        model_name = self.LLM_MODELS.get(llm_model, "meta-llama/Llama-2-7b-chat-hf")
         
-        # Hugging Face models
-        model_name = self.LLM_MODELS.get(llm_model, "microsoft/DialoGPT-small")
-        
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = AutoModelForCausalLM.from_pretrained(model_name)
+        # Note: Llama models require authentication
+        tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=True)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name, 
+            use_auth_token=True,
+            device_map='auto'  # Automatic device placement
+        )
         
         pipe = pipeline(
             "text-generation", 
@@ -245,7 +240,7 @@ class DocumentChatApp:
                 )
                 llm_dropdown = gr.Dropdown(
                     choices=list(self.LLM_MODELS.keys()),
-                    value="DialoGPT Small",
+                    value="Llama-2-7b-chat",
                     label="Language Model"
                 )
             
