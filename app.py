@@ -276,7 +276,7 @@ class DocumentChatApp:
             # Chat Interface
             chatbot = gr.ChatInterface(
                 fn=self.chat_with_documents,
-                title="Customizable Document Chat"
+                title="LangChain Chat with Your Data"
             )
             
             # Initialize Logic
